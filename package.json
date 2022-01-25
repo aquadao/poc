@@ -1,0 +1,22 @@
+{
+  "name": "aquadao-poc",
+  "version": "1.0.0",
+  "repository": "git@github.com:AcalaNetwork/aquadao-poc.git",
+  "author": "Bryan Chen <xlchen1291@gmail.com>",
+  "private": true,
+  "scripts": {
+    "start": "ts-node src/index.ts",
+    "ausd-sub": "ts-node src/ausdSubscription.ts",
+    "fmt": "prettier -w ."
+  },
+  "dependencies": {
+    "prettier": "^2.5.1",
+    "ts-node": "^10.4.0",
+    "typescript": "^4.5.4"
+  },
+  "prettier": {
+    "tabWidth": 2,
+    "semi": false,
+    "singleQuote": true
+  }
+}
