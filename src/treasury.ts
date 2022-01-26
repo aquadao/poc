@@ -82,7 +82,7 @@ export default class Treasury {
 
   fund(origin: Account, amount: number) {
     withEvent(`fund`, { origin, amount }, () => {
-      origin.transfer(TokenSymbol.DAO, this.account, amount)
+      origin.transfer(TokenSymbol.aDAO, this.account, amount)
       this.account.stakeDao(amount)
       this.principle += amount
     })

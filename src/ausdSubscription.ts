@@ -26,7 +26,7 @@ const main = () => {
     },
     [charlie.address]: {
       [TokenSymbol.aUSD]: 10000000,
-      [TokenSymbol.DAO]: 10000000,
+      [TokenSymbol.aDAO]: 10000000,
     },
   } as Record<string, Record<CurrencyId, number>>
 
@@ -54,7 +54,7 @@ const main = () => {
   }
 
   // add liquidity, initial price of $5, the current soft backing value
-  state.treasury.account.addLiquidity(TokenSymbol.aUSD, TokenSymbol.DAO, 1_250_000, 250_000)
+  state.treasury.account.addLiquidity(TokenSymbol.aUSD, TokenSymbol.aDAO, 1_250_000, 250_000)
 
   state.update()
 

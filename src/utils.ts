@@ -7,7 +7,7 @@ export const enum TokenSymbol {
   aUSD = 'aUSD',
   lcDOT = 'lcDOT',
   LDOT = 'LDOT',
-  DAO = 'DAO',
+  aDAO = 'aDAO',
   sDAO = 'sDAO',
 }
 

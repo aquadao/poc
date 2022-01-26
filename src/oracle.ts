@@ -16,12 +16,12 @@ export default class Oracle {
 
   getTokenPrice(token: TokenSymbol) {
     if (token === TokenSymbol.sDAO) {
-      return this.getTokenPrice(TokenSymbol.DAO) * this.state.stoken.fromStakedToken(1)
+      return this.getTokenPrice(TokenSymbol.aDAO) * this.state.stoken.fromStakedToken(1)
     }
-    if (token === TokenSymbol.DAO) {
-      const aggregatedPrice = this.aggregatedPrice[toLPToken(TokenSymbol.DAO, TokenSymbol.aUSD)]
+    if (token === TokenSymbol.aDAO) {
+      const aggregatedPrice = this.aggregatedPrice[toLPToken(TokenSymbol.aDAO, TokenSymbol.aUSD)]
       if (!aggregatedPrice) {
-        return this.state.dex.getPrice(TokenSymbol.DAO, TokenSymbol.aUSD)
+        return this.state.dex.getPrice(TokenSymbol.aDAO, TokenSymbol.aUSD)
       }
       return aggregatedPrice / this.averagingPeriod
     }
@@ -52,8 +52,8 @@ export default class Oracle {
 
   onUpdate() {
     withEvent(`Oracle.onUpdate`, {}, () => {
-      const daoPrice = this.state.dex.getPrice(TokenSymbol.DAO, TokenSymbol.aUSD)
-      const lp = toLPToken(TokenSymbol.DAO, TokenSymbol.aUSD)
+      const daoPrice = this.state.dex.getPrice(TokenSymbol.aDAO, TokenSymbol.aUSD)
+      const lp = toLPToken(TokenSymbol.aDAO, TokenSymbol.aUSD)
       if (!this.aggregatedPrice[lp]) {
         this.aggregatedPrice[lp] = daoPrice * this.averagingPeriod
       } else {

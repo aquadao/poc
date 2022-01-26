@@ -20,7 +20,7 @@ export default class SToken {
     return withEvent(`stake`, { amount }, () =>
       this.withInvariant(true, () => {
         const toMint = this.toStakedToken(amount)
-        origin.transfer(TokenSymbol.DAO, this.account, amount)
+        origin.transfer(TokenSymbol.aDAO, this.account, amount)
         this.state.tokens.deposit(TokenSymbol.sDAO, origin.address, toMint)
       })
     )
@@ -33,7 +33,7 @@ export default class SToken {
         const fee = this.unstakeFee * toRedeem
         const finalToRedeem = toRedeem - fee
         this.state.tokens.withdraw(TokenSymbol.sDAO, origin.address, amount)
-        this.account.transfer(TokenSymbol.DAO, origin, finalToRedeem)
+        this.account.transfer(TokenSymbol.aDAO, origin, finalToRedeem)
 
         return finalToRedeem
       })
@@ -52,7 +52,7 @@ export default class SToken {
         const toTreasuryStaked = this.toStakedToken(toTreasury)
         const toDaoStaked = this.toStakedToken(toDao)
 
-        this.state.tokens.deposit(TokenSymbol.DAO, this.account.address, totalMint)
+        this.state.tokens.deposit(TokenSymbol.aDAO, this.account.address, totalMint)
 
         // mint & stake the treasury and dao share
         this.state.tokens.deposit(TokenSymbol.sDAO, to.address, amountStaked)
@@ -76,7 +76,7 @@ export default class SToken {
         const toDaoStaked = this.toStakedToken(toDao)
 
         // mint
-        this.state.tokens.deposit(TokenSymbol.DAO, this.account.address, totalMint)
+        this.state.tokens.deposit(TokenSymbol.aDAO, this.account.address, totalMint)
 
         // stake the treasury and dao share
         this.state.tokens.deposit(TokenSymbol.sDAO, this.state.treasury.account.address, toTreasuryStaked)
@@ -88,7 +88,7 @@ export default class SToken {
   }
 
   getExchangeRate() {
-    const total = this.state.tokens.balances[this.account.address]?.[TokenSymbol.DAO] ?? 0
+    const total = this.state.tokens.balances[this.account.address]?.[TokenSymbol.aDAO] ?? 0
     const supply = this.state.tokens.total[TokenSymbol.sDAO] ?? 0
     if (supply === 0) {
       return 1

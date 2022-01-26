@@ -8,7 +8,7 @@ interface Subscription {
   amount: number
   vestingPeriod: number // hours
   duration: number // hours
-  minPrice: number
+  minRatio: number // at least this amount of subscribed currency per aDAO
   discountParameters: {
     initialDiscount: number // signed number, could be negative
     maxDiscount: number
@@ -47,7 +47,7 @@ export default class Dao {
 
   mint(to: Account, amount: number) {
     return withEvent(`mint`, { to, amount }, () => {
-      this.state.tokens.deposit(TokenSymbol.DAO, to.address, amount)
+      this.state.tokens.deposit(TokenSymbol.aDAO, to.address, amount)
       this.checkInvariant()
     })
   }
@@ -61,14 +61,13 @@ export default class Dao {
 
       origin.transfer(sub.currency, this.account, paymentAmount)
 
-      const daoPrice = this.state.oracle.getPrice(TokenSymbol.DAO)
+      const daoPrice = this.state.oracle.getPrice(TokenSymbol.aDAO)
       const paymentValue = this.oracle.getPrice(sub.currency) * paymentAmount
 
       const idlePeriodCount = Math.floor(
         (this.state.now - sub.lastTradeTime) / sub.discountParameters.idleIncreasePeriod
       )
       const discountIncrease = idlePeriodCount * sub.discountParameters.idleIncreasePercentage
-      // TODO: consider take current discount into account that the hight the discount, the faster decreasing
       const discountDecrease = sub.soldAmount * sub.discountParameters.decreasePercentagePerUnit
       const discount = Math.min(
         sub.discountParameters.maxDiscount,
@@ -76,10 +75,12 @@ export default class Dao {
       )
 
       const discountedPrice = daoPrice * (1 - discount)
-      const startPrice = Math.max(discountedPrice, sub.minPrice)
+      const startPrice = discountedPrice
 
       const inc = daoPrice * sub.discountParameters.decreasePercentagePerUnit
-      const finalAmount = (Math.sqrt(2 * inc * paymentValue + startPrice ** 2) - startPrice) / inc
+      const receiveAmount = (Math.sqrt(2 * inc * paymentValue + startPrice ** 2) - startPrice) / inc
+
+      const finalAmount = Math.min(receiveAmount, paymentAmount / sub.minRatio)
 
       const remainingAmount = sub.amount - sub.soldAmount
       if (finalAmount > remainingAmount) {
@@ -97,12 +98,14 @@ export default class Dao {
 
       this.checkInvariant()
 
-      const marketPrice = this.state.dex.getPrice(TokenSymbol.DAO, TokenSymbol.aUSD)
+      const marketPrice = this.state.dex.getPrice(TokenSymbol.aDAO, TokenSymbol.aUSD)
       const soldPrice = paymentValue / finalAmount
+      const soldRatio = paymentAmount / finalAmount
 
       log('subscription sold', {
         subId,
         soldAmount: finalAmount,
+        soldRatio,
         soldPrice,
         marketPrice,
         discount: 1 - soldPrice / marketPrice,
@@ -133,7 +136,7 @@ export default class Dao {
     }
   }
 
-  totalReserve() {
+  reserves() {
     const assets = Object.entries(this.state.tokens.balances[this.account.address])
     const totalBackingAmount = Object.fromEntries(Object.keys(this.backing).map((currency) => [currency, 0])) as Record<
       CurrencyId,
@@ -145,8 +148,13 @@ export default class Dao {
         totalBackingAmount[currency] += value
       }
     }
-    const daoAmount = assets[TokenSymbol.DAO] || 0
-    return Math.min(...Object.values(totalBackingAmount)) + daoAmount
+
+    return totalBackingAmount
+  }
+
+  totalReserve() {
+    const totalBackingAmount = this.reserves()
+    return Math.min(...Object.values(totalBackingAmount)) + this.holdingDaoAmount()
   }
 
   backingAmount(currency: CurrencyId, amount: number) {
@@ -156,7 +164,7 @@ export default class Dao {
     if (this.isBackingAsset(currency)) {
       return { [currency]: amount / this.backing[currency] }
     }
-    if (currency === toLPToken(TokenSymbol.aUSD, TokenSymbol.DAO)) {
+    if (currency === toLPToken(TokenSymbol.aUSD, TokenSymbol.aDAO)) {
       const total = this.state.tokens.total[currency] ?? 0
       const [a, b] = currency.split('-')
       const pool0 = this.state.tokens.balances[this.state.dex.lpAccount(currency).address][a]
@@ -192,9 +200,14 @@ export default class Dao {
     )
   }
 
+  holdingDaoAmount() {
+    const sdaoAmount = this.state.tokens.balances[this.account.address][TokenSymbol.sDAO] ?? 0
+    return this.state.stoken.fromStakedToken(sdaoAmount)
+  }
+
   onUpdate() {
     withEvent(`Dao.onUpdate`, {}, () => {
-      const totalSupply = this.state.tokens.total[TokenSymbol.sDAO] ?? 0
+      const totalSupply = this.state.tokens.total[TokenSymbol.aDAO] ?? 0
       const toMint = totalSupply * RATE_PER_UPDATE
 
       const oldRate = this.state.stoken.getExchangeRate()
@@ -213,18 +226,25 @@ export default class Dao {
 
   printInfo() {
     console.log('Dao info')
+    const daoAmount = this.holdingDaoAmount()
+    const reserves = this.reserves()
     const totalReserve = this.totalReserve()
-    const currentDebt = this.state.tokens.total[TokenSymbol.DAO] ?? 0
+    const totalDao = this.state.tokens.total[TokenSymbol.aDAO] ?? 0
+    const currentDebt = totalDao - daoAmount
     const availableReserve = totalReserve - currentDebt
     const runwayPercent = totalReserve / currentDebt
     const runwayDays = Math.log(runwayPercent) / Math.log(RATE_PER_UPDATE + 1) / 24
     const treasuryValue = this.treasuryValue()
+    console.table(reserves)
     console.table({
+      daoAmount,
       totalReserve,
+      totalDao,
       currentDebt,
       availableReserve,
       runwayDays,
       treasuryValue,
+      softBacking: treasuryValue / currentDebt,
     })
     console.table(
       Object.fromEntries(
