@@ -45,24 +45,23 @@ const main = () => {
 
   {
     // bootstrap
-    // 1 $DAO = 0.6 aUSD, 0.02 lcDOT
 
     console.log('Seed DAO reserve')
     state.treasury.account.transfer(TokenSymbol.aUSD, state.dao.account, 600_000)
-    state.treasury.account.transfer(TokenSymbol.lcDOT, state.dao.account, 40_000)
+    state.treasury.account.transfer(TokenSymbol.lcDOT, state.dao.account, 20_000)
 
     state.dao.printInfo()
 
     console.log('Mint initial $DAO')
-    state.dao.mint(state.treasury.account, 400_000)
+    state.dao.mint(state.treasury.account, 1_000_000)
 
     state.dao.printInfo()
 
-    // add liquidity, initial price of $4
-    const lp = state.treasury.account.addLiquidity(TokenSymbol.aUSD, TokenSymbol.aDAO, 800_000, 200_000)
+    // add liquidity, initial price of $
+    const lp = state.treasury.account.addLiquidity(TokenSymbol.aUSD, TokenSymbol.aDAO, 500_000, 500_000)
     state.treasury.account.transfer(toLPToken(TokenSymbol.aUSD, TokenSymbol.aDAO), state.dao.account, lp)
 
-    state.treasury.fund(state.treasury.account, 50_000)
+    state.treasury.fund(state.treasury.account, 500_000)
 
     state.printInfo()
   }

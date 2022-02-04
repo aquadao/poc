@@ -1,4 +1,4 @@
-export const BASE_APY = 4 // 400%
+export const BASE_APY = 0.3 // 30%
 export const RATE_PER_UPDATE = Math.pow(BASE_APY + 1, 1 / (365 * 24)) - 1
 
 export const enum TokenSymbol {

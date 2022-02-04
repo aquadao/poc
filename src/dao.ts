@@ -30,10 +30,6 @@ interface SubscriptionDetails extends Subscription {
 
 export default class Dao {
   account: Account
-  backing = {
-    [TokenSymbol.aUSD]: 0.6,
-    [TokenSymbol.lcDOT]: 0.02,
-  }
 
   subscriptions = {} as Record<number, SubscriptionDetails>
   nextSubscriptionId = 0
@@ -48,7 +44,6 @@ export default class Dao {
   mint(to: Account, amount: number) {
     return withEvent(`mint`, { to, amount }, () => {
       this.state.tokens.deposit(TokenSymbol.aDAO, to.address, amount)
-      this.checkInvariant()
     })
   }
 
@@ -96,8 +91,6 @@ export default class Dao {
 
       this.state.stoken.mint(origin, finalAmount)
 
-      this.checkInvariant()
-
       const marketPrice = this.state.dex.getPrice(TokenSymbol.aDAO, TokenSymbol.aUSD)
       const soldPrice = paymentValue / finalAmount
       const soldRatio = paymentAmount / finalAmount
@@ -128,69 +121,6 @@ export default class Dao {
     })
   }
 
-  private checkInvariant() {
-    const debt = this.state.tokens.total[this.account.address]
-    const totalReserve = this.totalReserve()
-    if (totalReserve <= debt) {
-      throw new Error(`DAO reserve is too low: ${totalReserve} < ${debt}`)
-    }
-  }
-
-  reserves() {
-    const assets = Object.entries(this.state.tokens.balances[this.account.address])
-    const totalBackingAmount = Object.fromEntries(Object.keys(this.backing).map((currency) => [currency, 0])) as Record<
-      CurrencyId,
-      number
-    >
-    for (const [currency, amount] of assets) {
-      const backingAmount = this.backingAmount(currency as CurrencyId, amount)
-      for (const [currency, value] of Object.entries(backingAmount)) {
-        totalBackingAmount[currency] += value
-      }
-    }
-
-    return totalBackingAmount
-  }
-
-  totalReserve() {
-    const totalBackingAmount = this.reserves()
-    return Math.min(...Object.values(totalBackingAmount)) + this.holdingDaoAmount()
-  }
-
-  backingAmount(currency: CurrencyId, amount: number) {
-    if (currency === TokenSymbol.DOT) {
-      currency = TokenSymbol.lcDOT
-    }
-    if (this.isBackingAsset(currency)) {
-      return { [currency]: amount / this.backing[currency] }
-    }
-    if (currency === toLPToken(TokenSymbol.aUSD, TokenSymbol.aDAO)) {
-      const total = this.state.tokens.total[currency] ?? 0
-      const [a, b] = currency.split('-')
-      const pool0 = this.state.tokens.balances[this.state.dex.lpAccount(currency).address][a]
-      const pool1 = this.state.tokens.balances[this.state.dex.lpAccount(currency).address][b]
-      const value = ((Math.sqrt(pool0 * pool1) * amount) / total) * 2
-      return {
-        [TokenSymbol.aUSD]: value / this.backing[TokenSymbol.aUSD],
-      }
-    }
-    if (currency === toLPToken(TokenSymbol.lcDOT, TokenSymbol.DOT)) {
-      const total = this.state.tokens.total[currency] ?? 0
-      const [a, b] = currency.split('-')
-      const pool0 = this.state.tokens.balances[this.state.dex.lpAccount(currency).address][a]
-      const pool1 = this.state.tokens.balances[this.state.dex.lpAccount(currency).address][b]
-      const value = ((Math.sqrt(pool0 * pool1) * amount) / total) * 2
-      return {
-        [TokenSymbol.lcDOT]: value / this.backing[TokenSymbol.lcDOT],
-      }
-    }
-    return {}
-  }
-
-  private isBackingAsset(currency: CurrencyId) {
-    return this.backing[currency] != null
-  }
-
   treasuryValue() {
     // price of DAO is excluded
     const assets = this.state.tokens.balances[this.account.address]
@@ -218,8 +148,6 @@ export default class Dao {
 
       const rateAPY = ((newRate - oldRate) / oldRate + 1) ** (24 * 365) - 1
 
-      this.checkInvariant()
-
       log('Dao update', { oldRate, newRate, rateAPY })
     })
   }
@@ -227,22 +155,13 @@ export default class Dao {
   printInfo() {
     console.log('Dao info')
     const daoAmount = this.holdingDaoAmount()
-    const reserves = this.reserves()
-    const totalReserve = this.totalReserve()
     const totalDao = this.state.tokens.total[TokenSymbol.aDAO] ?? 0
     const currentDebt = totalDao - daoAmount
-    const availableReserve = totalReserve - currentDebt
-    const runwayPercent = totalReserve / currentDebt
-    const runwayDays = Math.log(runwayPercent) / Math.log(RATE_PER_UPDATE + 1) / 24
     const treasuryValue = this.treasuryValue()
-    console.table(reserves)
     console.table({
       daoAmount,
-      totalReserve,
       totalDao,
       currentDebt,
-      availableReserve,
-      runwayDays,
       treasuryValue,
       softBacking: treasuryValue / currentDebt,
     })
