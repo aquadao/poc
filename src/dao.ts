@@ -1,7 +1,6 @@
 import Account from './account'
 import Blockchain from './blockchain'
-import { withEvent, toLPToken, TokenSymbol, LPToken, CurrencyId, parseLPToken, log, RATE_PER_UPDATE } from './utils'
-import Oracle from './oracle'
+import { withEvent, TokenSymbol, CurrencyId, log, RATE_PER_UPDATE } from './utils'
 
 interface Subscription {
   currency: CurrencyId
@@ -34,11 +33,8 @@ export default class Dao {
   subscriptions = {} as Record<number, SubscriptionDetails>
   nextSubscriptionId = 0
 
-  oracle: Oracle
-
   constructor(public state: Blockchain) {
     this.account = new Account('DAO', state)
-    this.oracle = new Oracle(state)
   }
 
   mint(to: Account, amount: number) {
@@ -57,7 +53,7 @@ export default class Dao {
       origin.transfer(sub.currency, this.account, paymentAmount)
 
       const daoPrice = this.state.oracle.getPrice(TokenSymbol.aDAO)
-      const paymentValue = this.oracle.getPrice(sub.currency) * paymentAmount
+      const paymentValue = this.state.oracle.getPrice(sub.currency) * paymentAmount
 
       const idlePeriodCount = Math.floor(
         (this.state.now - sub.lastTradeTime) / sub.discountParameters.idleIncreasePeriod

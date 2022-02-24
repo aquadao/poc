@@ -39,7 +39,8 @@ const main = () => {
   } as Record<string, Record<CurrencyId, number>>
 
   alice.addLiquidity(TokenSymbol.DOT, TokenSymbol.lcDOT, 1_000_000, 650_000)
-  alice.addLiquidity(TokenSymbol.DOT, TokenSymbol.aUSD, 1_000_000, 30_000_000)
+  alice.addLiquidity(TokenSymbol.lcDOT, TokenSymbol.aUSD, 1_000_000, 20_000_000)
+  alice.addLiquidity(TokenSymbol.ACA, TokenSymbol.aUSD, 1_000_000, 3_000_000)
 
   state.tokens.printInfo()
 
@@ -82,36 +83,6 @@ const main = () => {
   // bob.unstakeAca(1000)
 
   const subId1 = state.dao.createSubscription({
-    currency: toLPToken(TokenSymbol.aUSD, TokenSymbol.aDAO),
-    amount: 250_000,
-    vestingPeriod: 5 * 24, // 5 days
-    duration: 30 * 24, // 30 days
-    minRatio: 3,
-    discountParameters: {
-      initialDiscount: 0.05,
-      maxDiscount: 0.2,
-      idleIncreasePeriod: 1,
-      idleIncreasePercentage: 0.01,
-      decreasePercentagePerUnit: 0.2 / 250_000,
-    },
-  })
-
-  const subId2 = state.dao.createSubscription({
-    currency: toLPToken(TokenSymbol.lcDOT, TokenSymbol.DOT),
-    amount: 250_000,
-    vestingPeriod: 5 * 24, // 5 days
-    duration: 30 * 24, // 30 days
-    minRatio: 0.15,
-    discountParameters: {
-      initialDiscount: 0.05,
-      maxDiscount: 0.2,
-      idleIncreasePeriod: 1,
-      idleIncreasePercentage: 0.01,
-      decreasePercentagePerUnit: 0.2 / 250_000,
-    },
-  })
-
-  const subId3 = state.dao.createSubscription({
     currency: TokenSymbol.aUSD,
     amount: 250_000,
     vestingPeriod: 5 * 24, // 5 days
@@ -126,7 +97,7 @@ const main = () => {
     },
   })
 
-  const subId4 = state.dao.createSubscription({
+  const subId2 = state.dao.createSubscription({
     currency: TokenSymbol.lcDOT,
     amount: 150_000,
     vestingPeriod: 5 * 24, // 5 days
@@ -141,7 +112,7 @@ const main = () => {
     },
   })
 
-  const subId5 = state.dao.createSubscription({
+  const subId3 = state.dao.createSubscription({
     currency: TokenSymbol.DOT,
     amount: 100_000,
     vestingPeriod: 5 * 24, // 5 days
@@ -156,16 +127,32 @@ const main = () => {
     },
   })
 
+  const subId4 = state.dao.createSubscription({
+    currency: TokenSymbol.ACA,
+    amount: 100_000,
+    vestingPeriod: 5 * 24, // 5 days
+    duration: 30 * 24, // 30 days
+    minRatio: 1,
+    discountParameters: {
+      initialDiscount: 0.05,
+      maxDiscount: 0.2,
+      idleIncreasePeriod: 1,
+      idleIncreasePercentage: 0.01,
+      decreasePercentagePerUnit: 0.2 / 100_000,
+    },
+  })
+
+  alice.subscribe(subId1, 50_000, 0)
   alice.subscribe(subId2, 100, 0)
   alice.subscribe(subId3, 100, 0)
   alice.subscribe(subId4, 100, 0)
-  alice.subscribe(subId5, 100, 0)
 
-  alice.unstakeDao(50)
+  state.printInfo()
 
-  const lp = alice.addLiquidity(TokenSymbol.aDAO, TokenSymbol.aUSD, 10, 100)
-
-  alice.subscribe(subId1, lp, 0)
+  state.update()
+  state.update()
+  state.update()
+  state.update()
 
   state.printInfo()
 }

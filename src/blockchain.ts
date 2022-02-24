@@ -4,6 +4,7 @@ import Dao from './dao'
 import Treasury from './treasury'
 import Oracle from './oracle'
 import SToken from './stoken'
+import Manager from './manager'
 import { withEvent } from './utils'
 
 export default class Blockchain {
@@ -13,6 +14,7 @@ export default class Blockchain {
   treasury: Treasury
   oracle: Oracle
   stoken: SToken
+  manager: Manager
 
   now = 0
 
@@ -23,6 +25,7 @@ export default class Blockchain {
     this.treasury = new Treasury(this)
     this.oracle = new Oracle(this)
     this.stoken = new SToken(this)
+    this.manager = new Manager(this)
   }
 
   update(count = 1) {
@@ -31,6 +34,7 @@ export default class Blockchain {
       withEvent(`update`, { now: this.now }, () => {
         this.oracle.onUpdate()
         this.dao.onUpdate()
+        this.manager.onUpdate()
       })
     }
   }
@@ -40,5 +44,6 @@ export default class Blockchain {
     this.tokens.printInfo()
     this.dao.printInfo()
     this.oracle.printInfo()
+    this.manager.printInfo()
   }
 }
