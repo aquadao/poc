@@ -143,12 +143,16 @@ const main = () => {
   })
 
   alice.subscribe(subId1, 50_000, 0)
-  alice.subscribe(subId2, 100, 0)
-  alice.subscribe(subId3, 100, 0)
-  alice.subscribe(subId4, 100, 0)
+  alice.subscribe(subId2, 1_000, 0)
+  alice.subscribe(subId3, 1_000, 0)
+  alice.subscribe(subId4, 1_000, 0)
 
   state.printInfo()
 
+  state.update()
+  state.update()
+  state.update()
+  state.update()
   state.update()
   state.update()
   state.update()

@@ -18,14 +18,18 @@ interface Diff {
 
 export abstract class Strategy {
   maxTradeAmount = 50000
-  minTradeAmount = 5000
+  minTradeAmount = 500
   tradeAmountPercent = 0.1
 
   abstract rebalance(diff: Record<CurrencyId, Diff>): Record<CurrencyId, Diff>
 
-  tradeAmount(diff: number) {
-    const amount = Math.abs(diff) * this.tradeAmountPercent
-    return Math.min(Math.max(this.minTradeAmount, amount), this.maxTradeAmount)
+  tradeAmount(diff: number, maxAmount: number) {
+    const absDiff = Math.abs(diff)
+    if (maxAmount <= this.minTradeAmount || absDiff <= this.minTradeAmount) {
+      return 0
+    }
+    const amount = absDiff * this.tradeAmountPercent
+    return Math.min(Math.max(this.minTradeAmount, amount), this.maxTradeAmount, maxAmount)
   }
 }
 
@@ -41,21 +45,59 @@ class LiquidityProviderStrategyAusdAdao extends Strategy {
       const tempAccount = new Account('temp', this.manger.state)
       const daoAccount = this.manger.state.dao.account
       if (lpDiff && lpDiff.rangeDiff < 0) {
-        const amount = this.tradeAmount(lpDiff.diffAmount)
-        const adaoToMint = this.manger.state.dex.getPrice(TokenSymbol.aDAO, TokenSymbol.aUSD) * amount
-        this.manger.state.tokens.deposit(TokenSymbol.aDAO, tempAccount.address, adaoToMint)
-        daoAccount.transfer(TokenSymbol.aUSD, tempAccount, amount)
-        tempAccount.addLiquidity(TokenSymbol.aDAO, TokenSymbol.aUSD, adaoToMint, amount)
-        tempAccount.transfer(lp, daoAccount, this.manger.state.tokens.balances[tempAccount.address][lp])
-        if (Object.values(this.manger.state.tokens.balances[tempAccount.address]).some((v) => v > 0)) {
-          throw new Error('temp account has some tokens')
+        const maxAmount = diff[TokenSymbol.aUSD].diffAmount
+        const amount = this.tradeAmount(lpDiff.diffAmount, maxAmount) / 2 // amount is single side, the total amount is twice
+        if (amount > 0) {
+          const adaoToMint = this.manger.state.dex.getPrice(TokenSymbol.aDAO, TokenSymbol.aUSD) * amount
+          this.manger.state.tokens.deposit(TokenSymbol.aDAO, tempAccount.address, adaoToMint)
+          daoAccount.transfer(TokenSymbol.aUSD, tempAccount, amount)
+          tempAccount.addLiquidity(TokenSymbol.aDAO, TokenSymbol.aUSD, adaoToMint, amount)
+          tempAccount.transfer(lp, daoAccount, this.manger.state.tokens.balances[tempAccount.address][lp])
+          if (Object.values(this.manger.state.tokens.balances[tempAccount.address]).some((v) => v > 0)) {
+            throw new Error('temp account has some tokens')
+          }
+          log('rebalance', { amount, adaoToMint })
+          return {
+            ...diff,
+            lp: {
+              ...lpDiff,
+              diffAmount: lpDiff.diffAmount - amount * 2,
+            }
+          }
         }
-        log('rebalance', { amount, adaoToMint })
-        return {
-          ...diff,
-          lp: {
-            ...lpDiff,
-            diffAmount: lpDiff.diffAmount - amount,
+      }
+      return diff
+    })
+
+  }
+}
+
+class LiquidityProviderStrategyAusdOther extends Strategy {
+  constructor(public manger: Manager, public currency: TokenSymbol) {
+    super()
+  }
+
+  rebalance(diff: Record<CurrencyId, Diff>) {
+    return withEvent(`LiquidityProviderStrategyAusd${this.currency}.rebalance`, { }, () => {
+      const lp = toLPToken(this.currency, TokenSymbol.aUSD)
+      const lpDiff = diff[lp]
+      const daoAccount = this.manger.state.dao.account
+      if (lpDiff && lpDiff.rangeDiff < 0) {
+        const price = this.manger.state.dex.getPrice(this.currency, TokenSymbol.aUSD)
+        const maxAmount = diff[TokenSymbol.aUSD].diffAmount
+        const maxOtherToAdd = this.manger.state.tokens.balances[daoAccount.address][this.currency]
+        const maxOtherToAddAmount = maxOtherToAdd * price
+        const amount = this.tradeAmount(lpDiff.diffAmount, Math.min(maxAmount, maxOtherToAddAmount)) / 2 // amount is single side, the total amount is twice
+        const otherToAdd = price * amount
+        if (amount > 0 && otherToAdd > 0) {
+          daoAccount.addLiquidity(this.currency, TokenSymbol.aUSD, otherToAdd, amount)
+          log('rebalance', { amount, otherToAdd })
+          return {
+            ...diff,
+            lp: {
+              ...lpDiff,
+              diffAmount: lpDiff.diffAmount - amount * 2,
+            }
           }
         }
       }
@@ -101,7 +143,12 @@ export default class Manager {
     },
   }
 
-  strategies = [new LiquidityProviderStrategyAusdAdao(this)]
+  strategies = [
+    new LiquidityProviderStrategyAusdAdao(this),
+    new LiquidityProviderStrategyAusdOther(this, TokenSymbol.DOT),
+    new LiquidityProviderStrategyAusdOther(this, TokenSymbol.lcDOT),
+    new LiquidityProviderStrategyAusdOther(this, TokenSymbol.ACA),
+  ]
 
   constructor(public state: Blockchain) {}
 
@@ -248,10 +295,14 @@ export default class Manager {
 
   onUpdate() {
     withEvent(`Manager.onUpdate`, {}, () => {
-      let diff = this.getAllocationDiff()
-      for (const strategy of this.strategies) {
-        diff = strategy.rebalance(diff)
-      }
+      const diff = this.getAllocationDiff()
+      // trigger one stragegy at a time to avoid making too many trades in a single block
+      // NOTE: for real implementation, we want something like this so that we execute one stragegy at every interval
+      // and execute them in round robin
+      // if now % interval == 0
+      //   let idx = now / inteval % strategies.length
+      let i = this.state.now % this.strategies.length
+      this.strategies[i].rebalance(diff)
     })
   }
 
