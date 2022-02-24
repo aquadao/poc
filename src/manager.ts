@@ -158,6 +158,7 @@ export default class Manager {
     })
   }
 
+  // Note: we shoud save the result of this and do incremental update on updateAllocation
   getTargetAllocations() {
     const targetAllocatioin = {} as Record<
       CurrencyId,
@@ -180,6 +181,7 @@ export default class Manager {
   }
 
   getCurrentAllocations() {
+    // Note: should have a known supported assets so we can ignore irrelevant assets
     const assets = this.state.tokens.balances[this.state.dao.account.address]
     delete assets[TokenSymbol.aDAO]
     delete assets[TokenSymbol.sDAO]
