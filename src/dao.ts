@@ -65,6 +65,8 @@ export default class Dao {
         sub.lastDiscount + discountIncrease - discountDecrease
       )
 
+      sub.lastDiscount = discount
+
       const discountedPrice = daoPrice * (1 - discount)
       const startPrice = discountedPrice
 
